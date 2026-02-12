@@ -1,0 +1,9 @@
+## Interface: 30300
+## Title: Energy Crystals Tracker
+## Author: Арылхан
+## Version: 2.0 beta
+
+## OptionalDeps: 
+## SavedVariables: ECT_SavedVars
+
+core.lua
