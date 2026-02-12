@@ -1,0 +1,7 @@
+## Interface: 30300
+## Title: Созвездия
+## Notes: Аддон для просмотра информации о созвездиях
+## Version: 1.0
+## Author: Арылхан
+
+Constellations.lua
