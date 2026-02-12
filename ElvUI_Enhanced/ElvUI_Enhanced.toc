@@ -1,0 +1,19 @@
+## Interface: 30300
+## Author: Bunny, Apollyon, Loaal, Crum, fxpw
+## Version: 1.57
+## Title: |cff1784d1E|r|cffe5e3e3lvUI|r |cff1784d1E|r|cffe5e3e3nhanced|r for sirus
+## Notes: Plugin-Enhancements for |cff1784d1E|r|cffe5e3e3lvUI|r.
+## SavedVariables: EnhancedDB, EnhancedRuletteDB
+## SavedVariablesPerCharacter: EnhancedRuletteCharDB
+## RequiredDeps: ElvUI
+## DefaultState: Enabled
+## X-Sirus-Update: https://github.com/fxpw/ElvUI_Enhanced/tree/master
+
+Developer\Load_Developer.xml
+Libraries\Load_Libraries.xml
+Locales\Load_Locales.xml
+Media\Load_Media.xml
+ElvUI_Enhanced.lua
+Settings\Load_Settings.xml
+Modules\Load_Modules.xml
+Config\Load_Config.xml
