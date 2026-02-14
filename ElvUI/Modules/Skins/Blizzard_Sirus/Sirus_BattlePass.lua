@@ -1,713 +1,784 @@
--- Проверяем существование ElvUI
-if not ElvUI then return end
+local E, L, V, P, G = unpack(select(2, ...))
+local S = E:GetModule("Skins")
 
-local E, L, V, P, G = unpack(ElvUI)
+local _G = _G
 
--- Проверяем, существует ли модуль Skins и включены ли скины
-if not E:GetModule('Skins', true) then return end
-
-local S = E:GetModule('Skins')
-
--- Проверяем, включены ли скины BattlePass
-local function ShouldStyleBattlePass()
-    -- В версии 3.3.5 может быть другая структура настроек
-    if E.private and E.private.skins and E.private.skins.blizzard then
-        return E.private.skins.blizzard.enable and (E.private.skins.blizzard.battlePass ~= false)
-    end
-    
-    -- Если структура отличается, пытаемся получить настройки иначе
-    if E.db and E.db.general then
-        -- Проверяем включены ли скины вообще
-        return true -- Временно возвращаем true, чтобы протестировать
-    end
-    
-    return false
+local function ApplyElvUIFont(frame)
+	if not frame or not frame.GetNumRegions then
+		return
+	end
+	for i = 1, (frame:GetNumRegions() or 0) do
+		local r = select(i, frame:GetRegions())
+		if r and r.GetObjectType and r:GetObjectType() == "FontString" and r.FontTemplate then
+			local _, size, flags = r:GetFont()
+			if not size or size <= 0 then
+				r:FontTemplate(nil, nil, flags)
+			else
+				r:FontTemplate(nil, size, flags)
+			end
+		end
+	end
+	local numChildren = frame:GetNumChildren() or 0
+	if numChildren > 0 then
+		for i = 1, numChildren do
+			local child = select(i, frame:GetChildren())
+			if child then
+				ApplyElvUIFont(child)
+			end
+		end
+	end
 end
 
--- Если скины не включены, выходим
-if not ShouldStyleBattlePass() then return end
-
-local function CreateBeautifulButton(button)
-    if not button then return end
-    
-    -- Проверяем, не стилизовали ли уже эту кнопку
-    if button._ElvStyled then return end
-    
-    -- Создаем красивый фон
-    if not button.backdrop then
-        button.backdrop = CreateFrame("Frame", nil, button)
-        button.backdrop:SetAllPoints()
-        button.backdrop:SetFrameLevel(button:GetFrameLevel() - 1)
-        button.backdrop:SetBackdrop({
-            bgFile = E.media.blankTex or "Interface\\Buttons\\WHITE8X8",
-            edgeFile = E.media.blankTex or "Interface\\Buttons\\WHITE8X8",
-            tile = false,
-            tileSize = 0,
-            edgeSize = E.mult * 2,
-            insets = {left = 0, right = 0, top = 0, bottom = 0}
-        })
-        button.backdrop:SetBackdropColor(0, 0, 0, 0)
-        button.backdrop:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
-        
-        -- Градиент для фона
-        if button.backdrop.CreateTexture then
-            button.backdrop.gradient = button.backdrop:CreateTexture(nil, "BACKGROUND")
-            button.backdrop.gradient:SetAllPoints()
-            button.backdrop.gradient:SetTexture("Interface\\Buttons\\WHITE8X8")
-            button.backdrop.gradient:SetGradientAlpha("VERTICAL", 
-                0.2, 0.2, 0.2, 0.8,
-                0.4, 0.4, 0.4, 0.9
-            )
-        end
-        
-        -- Светящаяся граница
-        if button.backdrop.CreateTexture then
-            button.backdrop.overlay = button.backdrop:CreateTexture(nil, "OVERLAY")
-            button.backdrop.overlay:SetAllPoints()
-            button.backdrop.overlay:SetTexture("Interface\\Buttons\\UI-Debuff-Overlays")
-            button.backdrop.overlay:SetTexCoord(0.296875, 0.5703125, 0, 0.515625)
-            button.backdrop.overlay:SetVertexColor(0.8, 0.8, 0, 0.4)
-            button.backdrop.overlay:Hide()
-        end
-    end
-    
-    -- Эффект при наведении
-    local oldOnEnter = button:GetScript("OnEnter")
-    button:SetScript("OnEnter", function(self)
-        if oldOnEnter then oldOnEnter(self) end
-        if self.backdrop and self.backdrop.overlay then
-            self.backdrop.overlay:Show()
-            if self.backdrop.gradient then
-                self.backdrop.gradient:SetGradientAlpha("VERTICAL", 
-                    0.3, 0.3, 0.3, 0.9,
-                    0.5, 0.5, 0.5, 1
-                )
-            end
-            self.backdrop:SetBackdropBorderColor(0.9, 0.9, 0, 1)
-        end
-    end)
-    
-    local oldOnLeave = button:GetScript("OnLeave")
-    button:SetScript("OnLeave", function(self)
-        if oldOnLeave then oldOnLeave(self) end
-        if self.backdrop and self.backdrop.overlay then
-            self.backdrop.overlay:Hide()
-            if self.backdrop.gradient then
-                self.backdrop.gradient:SetGradientAlpha("VERTICAL", 
-                    0.2, 0.2, 0.2, 0.8,
-                    0.4, 0.4, 0.4, 0.9
-                )
-            end
-            self.backdrop:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
-        end
-    end)
-    
-    -- Стилизация текста
-    if button.GetFontString then
-        local fontString = button:GetFontString()
-        if fontString then
-            fontString:SetFont(E.media.normFont, 12)
-            fontString:SetShadowColor(0, 0, 0, 1)
-            fontString:SetShadowOffset(1, -1)
-        end
-    end
-    
-    -- Очистка стандартных текстур
-    if button.SetNormalTexture then button:SetNormalTexture("") end
-    if button.SetHighlightTexture then button:SetHighlightTexture("") end
-    if button.SetPushedTexture then button:SetPushedTexture("") end
-    if button.SetDisabledTexture then button:SetDisabledTexture("") end
-    
-    -- Убираем стандартные границы
-    for i = 1, (button:GetNumRegions() or 0) do
-        local region = select(i, button:GetRegions())
-        if region and region.IsObjectType and region:IsObjectType("Texture") then
-            region:SetTexture("")
-            region:SetAlpha(0)
-        end
-    end
-    
-    button._ElvStyled = true
+local function ApplyElvUIFontForce(frame)
+	if not frame or not frame.GetObjectType then
+		return
+	end
+	for i = 1, (frame:GetNumRegions() or 0) do
+		local r = select(i, frame:GetRegions())
+		if r and r.GetObjectType and r:GetObjectType() == "FontString" and r.SetFont then
+			local _, size, flags = r:GetFont()
+			r:SetFont(E.media.normFont or (select(1, GameFontNormal:GetFont())), (size and size > 0) and size or 12,
+				flags or "")
+		end
+	end
+	for i = 1, (frame:GetNumChildren() or 0) do
+		local child = select(i, frame:GetChildren())
+		if child then
+			ApplyElvUIFontForce(child)
+		end
+	end
 end
 
--- Улучшенная полоска прогресса
-local function CreateBeautifulStatusBar(statusBar)
-    if not statusBar then return end
-    
-    -- Проверяем, не стилизовали ли уже эту полоску
-    if statusBar._ElvStyled then return end
-    
-    -- Основная текстура прогресса
-    if statusBar.CreateTexture then
-        statusBar.progressTexture = statusBar:CreateTexture(nil, "ARTWORK")
-        statusBar.progressTexture:SetAllPoints()
-        statusBar.progressTexture:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
-        statusBar.progressTexture:SetGradientAlpha("HORIZONTAL", 
-            0, 0.5, 1, 0.8,  -- Синий
-            0, 0.8, 1, 1     -- Голубой
-        )
-    end
-    
-    -- Фон
-    if statusBar.CreateTexture then
-        statusBar.background = statusBar:CreateTexture(nil, "BACKGROUND")
-        statusBar.background:SetAllPoints()
-        statusBar.background:SetTexture(E.media.blankTex or "Interface\\Buttons\\WHITE8X8")
-        statusBar.background:SetVertexColor(0.1, 0.1, 0.1, 0.6)
-    end
-    
-    -- Блестящая анимация
-    if statusBar.CreateTexture then
-        statusBar.spark = statusBar:CreateTexture(nil, "OVERLAY")
-        statusBar.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
-        statusBar.spark:SetBlendMode("ADD")
-        statusBar.spark:SetAlpha(0.8)
-        statusBar.spark:SetSize(20, (statusBar:GetHeight() or 20) * 2)
-        statusBar.spark:SetPoint("CENTER", statusBar.progressTexture, "RIGHT", 0, 0)
-    end
-    
-    -- Обновление позиции блеска
-    local oldSetValue = statusBar.SetValue
-    if oldSetValue then
-        statusBar.SetValue = function(self, value, ...)
-            oldSetValue(self, value, ...)
-            
-            if self.spark and self.progressTexture then
-                local min, max = self:GetMinMaxValues()
-                local width = self:GetWidth() or 100
-                local progress = max > min and ((value - min) / (max - min)) or 0
-                
-                self.spark:SetPoint("CENTER", self.progressTexture, "RIGHT", -width * (1 - progress), 0)
-            end
-        end
-    end
-    
-    statusBar._ElvStyled = true
+local function StyleTutorialButton(btn)
+	if not btn then
+		return
+	end
+	if btn.backdrop then
+		btn.backdrop:Hide()
+	end
+	if btn.HelpI then
+		btn.HelpI:SetAllPoints(btn)
+		btn.HelpI:SetDrawLayer("ARTWORK")
+		btn.HelpI:SetVertexColor(1, 1, 1)
+	end
+	local ht = (btn.GetHighlightTexture and btn:GetHighlightTexture()) or btn.HighlightTexture
+	if not ht then
+		ht = btn:CreateTexture(nil, "HIGHLIGHT")
+		ht:SetAllPoints(btn)
+		btn.HighlightTexture = ht
+	end
+	S:HandleButtonHighlight(ht, 1, 1, 1, 0.25)
+	if btn.SetHitRectInsets then
+		btn:SetHitRectInsets(4, 4, 4, 4)
+	end
 end
 
--- Красивые карточки уровней
-local function StyleLevelCard(card)
-    if not card then return end
-    
-    -- Проверяем, не стилизовали ли уже эту карточку
-    if card._ElvStyled then return end
-    
-    -- Градиентный фон для карточки
-    if not card.backdrop then
-        card.backdrop = CreateFrame("Frame", nil, card)
-        card.backdrop:SetAllPoints()
-        card.backdrop:SetFrameLevel(card:GetFrameLevel() - 1)
-        card.backdrop:SetBackdrop({
-            bgFile = E.media.blankTex or "Interface\\Buttons\\WHITE8X8",
-            edgeFile = E.media.blankTex or "Interface\\Buttons\\WHITE8X8",
-            tile = false,
-            tileSize = 0,
-            edgeSize = E.mult * 2,
-            insets = {left = 0, right = 0, top = 0, bottom = 0}
-        })
-        card.backdrop:SetBackdropBorderColor(0.5, 0.5, 0.5, 0.8)
-        
-        -- Главный градиент
-        if card.backdrop.CreateTexture then
-            card.backdrop.gradient = card.backdrop:CreateTexture(nil, "BACKGROUND")
-            card.backdrop.gradient:SetAllPoints()
-            card.backdrop.gradient:SetTexture("Interface\\Buttons\\WHITE8X8")
-            card.backdrop.gradient:SetGradientAlpha("VERTICAL", 
-                0.15, 0.15, 0.2, 0.8,
-                0.25, 0.25, 0.3, 0.9
-            )
-        end
-    end
-    
-    -- Стилизация текста на карточке
-    local function ApplyFontToFrame(frame)
-        if not frame then return end
-        
-        for i = 1, frame:GetNumChildren() do
-            local child = select(i, frame:GetChildren())
-            if child and child.IsObjectType then
-                if child:IsObjectType("FontString") then
-                    child:SetFont(E.media.normFont, 11)
-                    child:SetShadowColor(0, 0, 0, 1)
-                    child:SetShadowOffset(1, -1)
-                else
-                    ApplyFontToFrame(child)
-                end
-            end
-        end
-    end
-    
-    ApplyFontToFrame(card)
-    
-    -- Стилизация кнопок на карточке
-    if card.FreeFrame and card.FreeFrame.ActionButton then
-        CreateBeautifulButton(card.FreeFrame.ActionButton)
-    end
-    
-    if card.PremiumFrame and card.PremiumFrame.ActionButton then
-        CreateBeautifulButton(card.PremiumFrame.ActionButton)
-        -- Особый стиль для премиум кнопки
-        if card.PremiumFrame.ActionButton.backdrop then
-            if card.PremiumFrame.ActionButton.backdrop.gradient then
-                card.PremiumFrame.ActionButton.backdrop.gradient:SetGradientAlpha("VERTICAL", 
-                    0.8, 0.6, 0, 0.8,  -- Золотистый
-                    1, 0.8, 0, 0.9     -- Яркий золотой
-                )
-            end
-            card.PremiumFrame.ActionButton.backdrop:SetBackdropBorderColor(1, 0.8, 0, 1)
-        end
-    end
-    
-    card._ElvStyled = true
+local function CleanPageButton(btn)
+	if not btn then
+		return
+	end
+	S:HandleButton(btn)
+
+	if btn.SetNormalTexture then
+		btn:SetNormalTexture("")
+	end
+	if btn.SetPushedTexture then
+		btn:SetPushedTexture("")
+	end
+	if btn.GetHighlightTexture then
+		local ht = btn:GetHighlightTexture()
+		if ht then
+			ht:SetTexture()
+			ht:SetAlpha(0)
+		end
+		btn:SetHighlightTexture("")
+	end
+
+	if btn.Background then
+		btn.Background:SetTexture(0, 0, 0, 0)
+		btn.Background:SetAlpha(0)
+	end
+	if btn.DisabledBackground then
+		btn.DisabledBackground:SetTexture(0, 0, 0, 0)
+		btn.DisabledBackground:SetAlpha(0)
+	end
+
+	for i = 1, (btn:GetNumRegions() or 0) do
+		local region = select(i, btn:GetRegions())
+		if region and region.IsObjectType and region:IsObjectType("Texture") then
+			region:SetTexture()
+			region:SetAlpha(0)
+		end
+	end
+
+	btn:HookScript("OnShow", function(self)
+		if self.GetHighlightTexture then
+			local ht = self:GetHighlightTexture()
+			if ht then
+				ht:SetTexture()
+				ht:SetAlpha(0)
+			end
+		end
+		if self.Background then
+			self.Background:SetTexture(0, 0, 0, 0)
+			self.Background:SetAlpha(0)
+		end
+		if self.DisabledBackground then
+			self.DisabledBackground:SetTexture(0, 0, 0, 0)
+			self.DisabledBackground:SetAlpha(0)
+		end
+		for i = 1, (self:GetNumRegions() or 0) do
+			local r = select(i, self:GetRegions())
+			if r and r.IsObjectType and r:IsObjectType("Texture") then
+				r:SetTexture()
+				r:SetAlpha(0)
+			end
+		end
+	end)
 end
 
--- Простая функция для удаления текстур
-local function StripTextures(frame, kill)
-    if not frame then return end
-    
-    for i = 1, frame:GetNumRegions() do
-        local region = select(i, frame:GetRegions())
-        if region and region:IsObjectType("Texture") then
-            if kill then
-                region:SetTexture(nil)
-                region:SetAlpha(0)
-            else
-                region:Hide()
-            end
-        end
-    end
+local function ReskinPKBTButton(btn)
+	if not btn or not btn.IsObjectType or not btn:IsObjectType("Button") then
+		return
+	end
+
+	local function clearTextures(b)
+		if b.Left then
+			b.Left:SetAlpha(0)
+		end
+		if b.Right then
+			b.Right:SetAlpha(0)
+		end
+		if b.Center then
+			b.Center:SetAlpha(0)
+		end
+		if b.LeftHighlight then
+			b.LeftHighlight:SetAlpha(0)
+		end
+		if b.RightHighlight then
+			b.RightHighlight:SetAlpha(0)
+		end
+		if b.CenterHighlight then
+			b.CenterHighlight:SetAlpha(0)
+		end
+		if b.SetNormalTexture then
+			b:SetNormalTexture("")
+		end
+		if b.SetHighlightTexture then
+			b:SetHighlightTexture("")
+		end
+		if b.SetPushedTexture then
+			b:SetPushedTexture("")
+		end
+		if b.SetDisabledTexture then
+			b:SetDisabledTexture("")
+		end
+		for i = 1, (b:GetNumRegions() or 0) do
+			local r = select(i, b:GetRegions())
+			if r and r.IsObjectType and r:IsObjectType("Texture") then
+				r:SetTexture()
+				r:SetAlpha(0)
+			end
+		end
+		if b.Glow then
+			b.Glow:Hide()
+		end
+		if b.WidgetHolder then
+			b.WidgetHolder:Hide()
+		end
+		if b.Price then
+			b.Price:Hide()
+		end
+		if b.PurchaseNote then
+			b.PurchaseNote:Hide()
+		end
+	end
+
+	if not btn._Elv_BaseSkinned then
+		S:HandleButton(btn, true)
+		btn._Elv_BaseSkinned = true
+	end
+
+	clearTextures(btn)
+
+	ApplyElvUIFontForce(btn)
+
+	if not btn._Elv_ClearHooks then
+		btn._Elv_ClearHooks = true
+		if btn.SetThreeSliceAtlas then
+			hooksecurefunc(btn, "SetThreeSliceAtlas", function(self)
+				clearTextures(self)
+			end)
+		end
+		if btn.SetNormalAtlas then
+			hooksecurefunc(btn, "SetNormalAtlas", function(self)
+				clearTextures(self)
+			end)
+		end
+		if btn.SetHighlightAtlas then
+			hooksecurefunc(btn, "SetHighlightAtlas", function(self)
+				clearTextures(self)
+			end)
+		end
+		if btn.SetPushedAtlas then
+			hooksecurefunc(btn, "SetPushedAtlas", function(self)
+				clearTextures(self)
+			end)
+		end
+		btn:HookScript("OnShow", function(self)
+			clearTextures(self)
+			ApplyElvUIFontForce(self)
+		end)
+	end
 end
 
--- Главная функция стилизации BattlePass
-local function StyleBattlePassFrame()
-    if not _G.BattlePassFrame then return end
-    
-    local f = _G.BattlePassFrame
-    
-    -- Проверяем, не стилизовали ли уже этот фрейм
-    if f._ElvStyled then return end
-    
-    -- ============================================
-    -- КОНТРОЛЬ РАЗМЕРОВ - ЭТО РЕШИТ ПРОБЛЕМУ!
-    -- ============================================
-    
-    -- Сохраняем оригинальные размеры если они есть
-    if f:GetWidth() > 800 or f:GetHeight() > 600 then
-        -- Устанавливаем комфортные размеры
-        f:SetSize(640, 480)
-    end
-    
-    -- Центрируем окно
-    f:ClearAllPoints()
-    f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-    
-    -- Если окно не было изменено ранее, устанавливаем базовые размеры
-    if f:GetWidth() < 100 or f:GetHeight() < 100 then
-        f:SetSize(720, 520)
-    end
-    
-    -- Запрещаем изменение размеров пользователем (опционально)
-    f:SetResizable(false)
-    f:SetMovable(true)
-    
-    -- ============================================
-    
-    -- Полная переработка фона
-    StripTextures(f, true)
-    
-    -- Красивый основной фон
-    if f.CreateTexture then
-        f.background = f:CreateTexture(nil, "BACKGROUND")
-        f.background:SetAllPoints()
-        f.background:SetTexture("Interface\\Buttons\\WHITE8X8")
-        f.background:SetVertexColor(0.1, 0.1, 0.2, 0.9)
-    end
-    
-    -- Декоративная рамка
-    f.borderFrame = CreateFrame("Frame", nil, f)
-    f.borderFrame:SetPoint("TOPLEFT", -3, 3)
-    f.borderFrame:SetPoint("BOTTOMRIGHT", 3, -3)
-    f.borderFrame:SetBackdrop({
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        edgeSize = 16,
-        insets = {left = 5, right = 5, top = 5, bottom = 5}
-    })
-    f.borderFrame:SetBackdropColor(0, 0, 0, 0)
-    f.borderFrame:SetBackdropBorderColor(0.8, 0.6, 0, 0.8)
-    
-    -- Стилизация верхней панели
-    if f.TopPanel then
-        -- Панель опыта
-        if f.TopPanel.ExperiencePanel then
-            local ep = f.TopPanel.ExperiencePanel
-            
-            -- Полоска опыта
-            if ep.StatusBar then
-                CreateBeautifulStatusBar(ep.StatusBar)
-            end
-            
-            -- Кнопка покупки
-            if ep.PurchaseButton then
-                CreateBeautifulButton(ep.PurchaseButton)
-            end
-            
-            -- Текст на панели опыта
-            for i = 1, ep:GetNumRegions() do
-                local region = select(i, ep:GetRegions())
-                if region and region:IsObjectType("FontString") then
-                    region:SetFont(E.media.normFont, 12)
-                    region:SetShadowColor(0, 0, 0, 1)
-                    region:SetShadowOffset(1, -1)
-                end
-            end
-        end
-        
-        -- Кнопки навигации
-        local navButtons = {
-            f.TopPanel.RewardPageButton,
-            f.TopPanel.QuestPageButton
-        }
-        
-        for _, btn in pairs(navButtons) do
-            if btn then
-                CreateBeautifulButton(btn)
-            end
-        end
-    end
-    
-    -- Стилизация главной страницы с уровнями
-    if f.Content and f.Content.MainPage then
-        local main = f.Content.MainPage
-        
-        -- Скроллбар (упрощенная версия)
-        if main.ScrollFrame and main.ScrollFrame.ScrollBar then
-            local sb = main.ScrollFrame.ScrollBar
-            StripTextures(sb, true)
-            
-            local thumb = sb:GetThumbTexture()
-            if thumb then
-                thumb:SetTexture("Interface\\Buttons\\WHITE8X8")
-                thumb:SetVertexColor(0.8, 0.6, 0, 0.8)
-            end
-            
-            -- Стилизация кнопок скроллбара
-            local upButton = sb:GetChildren()
-            if upButton then
-                CreateBeautifulButton(upButton)
-                local downButton = upButton:GetSibling()
-                if downButton then
-                    CreateBeautifulButton(downButton)
-                end
-            end
-        end
-        
-        -- Карточки уровней
-        if main.ScrollFrame and main.ScrollFrame.buttons then
-            for _, card in ipairs(main.ScrollFrame.buttons) do
-                StyleLevelCard(card)
-            end
-        end
-        
-        -- Кнопка покупки премиума
-        if main.PurchasePremiumButton then
-            CreateBeautifulButton(main.PurchasePremiumButton)
-            if main.PurchasePremiumButton.backdrop then
-                if main.PurchasePremiumButton.backdrop.gradient then
-                    main.PurchasePremiumButton.backdrop.gradient:SetGradientAlpha("VERTICAL", 
-                        0.8, 0.6, 0, 0.9,
-                        1, 0.8, 0, 1
-                    )
-                end
-                main.PurchasePremiumButton.backdrop:SetBackdropBorderColor(1, 0.8, 0, 1)
-            end
-        end
-    end
-    
-    -- Стилизация страницы квестов
-    if f.Content and f.Content.QuestPage then
-        local questPage = f.Content.QuestPage
-        
-        -- Скроллбар (упрощенная версия)
-        if questPage.ScrollFrame and questPage.ScrollFrame.ScrollBar then
-            local sb = questPage.ScrollFrame.ScrollBar
-            StripTextures(sb, true)
-            
-            local thumb = sb:GetThumbTexture()
-            if thumb then
-                thumb:SetTexture("Interface\\Buttons\\WHITE8X8")
-                thumb:SetVertexColor(0.8, 0.6, 0, 0.8)
-            end
-            
-            -- Стилизация кнопок скроллбара
-            local upButton = sb:GetChildren()
-            if upButton then
-                CreateBeautifulButton(upButton)
-                local downButton = upButton:GetSibling()
-                if downButton then
-                    CreateBeautifulButton(downButton)
-                end
-            end
-        end
-        
-        -- Стилизация всех квестов
-        if questPage.UpdateQuestHolders then
-            local oldUpdate = questPage.UpdateQuestHolders
-            questPage.UpdateQuestHolders = function(self, ...)
-                oldUpdate(self, ...)
-                
-                local holder = self.ScrollFrame and self.ScrollFrame.ScrollChild
-                if holder then
-                    for i = 1, holder:GetNumChildren() do
-                        local child = select(i, holder:GetChildren())
-                        if child and child.IsObjectType and child:IsObjectType("Frame") then
-                            -- Фон для квеста
-                            if not child.backdrop then
-                                child.backdrop = CreateFrame("Frame", nil, child)
-                                child.backdrop:SetAllPoints()
-                                child.backdrop:SetFrameLevel(child:GetFrameLevel() - 1)
-                                child.backdrop:SetBackdrop({
-                                    bgFile = E.media.blankTex or "Interface\\Buttons\\WHITE8X8",
-                                    edgeFile = E.media.blankTex or "Interface\\Buttons\\WHITE8X8",
-                                    tile = false,
-                                    tileSize = 0,
-                                    edgeSize = E.mult,
-                                    insets = {left = 0, right = 0, top = 0, bottom = 0}
-                                })
-                                child.backdrop:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.6)
-                                
-                                if child.backdrop.CreateTexture then
-                                    child.backdrop.gradient = child.backdrop:CreateTexture(nil, "BACKGROUND")
-                                    child.backdrop.gradient:SetAllPoints()
-                                    child.backdrop.gradient:SetTexture("Interface\\Buttons\\WHITE8X8")
-                                    child.backdrop.gradient:SetGradientAlpha("VERTICAL", 
-                                        0.15, 0.15, 0.2, 0.6,
-                                        0.25, 0.25, 0.3, 0.7
-                                    )
-                                end
-                            end
-                            
-                            -- Полоска прогресса квеста
-                            if child.Progress and child.Progress.StatusBar then
-                                CreateBeautifulStatusBar(child.Progress.StatusBar)
-                            end
-                            
-                            -- Кнопка действия
-                            if child.ActionButton then
-                                CreateBeautifulButton(child.ActionButton)
-                            end
-                            
-                            -- Стилизация текста квеста
-                            for j = 1, child:GetNumRegions() do
-                                local region = select(j, child:GetRegions())
-                                if region and region:IsObjectType("FontString") then
-                                    region:SetFont(E.media.normFont, 11)
-                                    region:SetShadowColor(0, 0, 0, 1)
-                                    region:SetShadowOffset(1, -1)
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-    
-    -- Стилизация диалоговых окон
-    local styleDialogs = {
-        "PurchasePremiumDialog",
-        "PurchaseExperienceDialog", 
-        "PurchaseLevelExperienceDialog",
-        "QuestActionDialog",
-        "ItemRewardFrame",
-        "AlertFrame"
-    }
-    
-    for _, dialogName in pairs(styleDialogs) do
-        local dialog = f[dialogName]
-        if dialog then
-            StripTextures(dialog, true)
-            
-            -- Красивый фон
-            local bgFrame = CreateFrame("Frame", nil, dialog)
-            bgFrame:SetAllPoints()
-            bgFrame:SetBackdrop({
-                bgFile = E.media.blankTex or "Interface\\Buttons\\WHITE8X8",
-                edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-                tile = true,
-                tileSize = 32,
-                edgeSize = 16,
-                insets = {left = 5, right = 5, top = 5, bottom = 5}
-            })
-            bgFrame:SetBackdropColor(0.1, 0.1, 0.2, 0.95)
-            bgFrame:SetBackdropBorderColor(0.8, 0.6, 0, 0.8)
-            
-            -- Стилизация кнопок в диалогах
-            for i = 1, dialog:GetNumChildren() do
-                local child = select(i, dialog:GetChildren())
-                if child and child:IsObjectType("Button") then
-                    CreateBeautifulButton(child)
-                end
-            end
-            
-            -- Стилизация текста в диалогах
-            for i = 1, dialog:GetNumRegions() do
-                local region = select(i, dialog:GetRegions())
-                if region and region:IsObjectType("FontString") then
-                    region:SetFont(E.media.normFont, 14)
-                    region:SetShadowColor(0, 0, 0, 1)
-                    region:SetShadowOffset(1, -1)
-                end
-            end
-        end
-    end
-    
-    -- Кнопка закрытия (упрощенная версия)
-    if f.CloseButton then
-        StripTextures(f.CloseButton, true)
-        CreateBeautifulButton(f.CloseButton)
-        
-        -- Добавляем крестик
-        local closeText = f.CloseButton:CreateFontString(nil, "OVERLAY")
-        closeText:SetFont(E.media.normFont, 14)
-        closeText:SetText("X")
-        closeText:SetTextColor(1, 0.2, 0.2)
-        closeText:SetPoint("CENTER")
-        
-        local oldCloseEnter = f.CloseButton:GetScript("OnEnter")
-        f.CloseButton:SetScript("OnEnter", function(self)
-            if oldCloseEnter then oldCloseEnter(self) end
-            if closeText then
-                closeText:SetTextColor(1, 0.3, 0.3, 1)
-            end
-        end)
-        
-        local oldCloseLeave = f.CloseButton:GetScript("OnLeave")
-        f.CloseButton:SetScript("OnLeave", function(self)
-            if oldCloseLeave then oldCloseLeave(self) end
-            if closeText then
-                closeText:SetTextColor(1, 0.2, 0.2, 1)
-            end
-        end)
-    end
-    
-    -- Применение шрифтов ко всему фрейму
-    local function ApplyFontsToFrame(frame, size)
-        if not frame then return end
-        
-        for i = 1, frame:GetNumRegions() do
-            local region = select(i, frame:GetRegions())
-            if region and region:IsObjectType("FontString") then
-                region:SetFont(E.media.normFont, size or 12)
-                region:SetShadowColor(0, 0, 0, 1)
-                region:SetShadowOffset(1, -1)
-            end
-        end
-        
-        for i = 1, frame:GetNumChildren() do
-            local child = select(i, frame:GetChildren())
-            if child then
-                if child:IsObjectType("Button") then
-                    local text = child:GetFontString()
-                    if text then
-                        text:SetFont(E.media.normFont, size or 12)
-                        text:SetShadowColor(0, 0, 0, 1)
-                        text:SetShadowOffset(1, -1)
-                    end
-                end
-                -- Рекурсивно для детей
-                ApplyFontsToFrame(child, size)
-            end
-        end
-    end
-    
-    ApplyFontsToFrame(f, 12)
-    
-    -- Отмечаем фрейм как стилизованный
-    f._ElvStyled = true
-    
-    -- Обновление после стилизации
-    if f.UpdateDisplay then
-        f:UpdateDisplay()
-    end
+local function HandleBattlePassFrame()
+	if not _G.BattlePassFrame then
+		return
+	end
+
+	local f = _G.BattlePassFrame
+
+	f:StripTextures(true)
+	f:SetTemplate("NoBackdrop")
+	if f.NineSlice then
+		f.NineSlice:Hide()
+	end
+	f:CreateBackdrop("Transparent")
+	if f.backdrop then
+		f.backdrop:SetBackdropBorderColor(0, 0, 0, 0)
+	end
+
+	if not f._Elv_ScaleHooked then
+		f._Elv_ScaleHooked = true
+		f:HookScript("OnShow", function(self)
+			self:SetScale(E.global.general.UIScale)
+		end)
+	end
+
+	if f.Inset then
+		if f.Inset.NineSlice then
+			f.Inset.NineSlice:Hide()
+		end
+		if f.Inset.Top then
+			f.Inset.Top:SetTexture(0, 0, 0, 0)
+		end
+		if f.Inset.Middle then
+			f.Inset.Middle:SetTexture(0, 0, 0, 0)
+		end
+		if f.Inset.Bottom then
+			f.Inset.Bottom:SetTexture(0, 0, 0, 0)
+		end
+		if f.Inset.NineSliceBorder then
+			f.Inset.NineSliceBorder:Hide()
+		end
+		if f.Inset.NineSliceGlow then
+			f.Inset.NineSliceGlow:Hide()
+		end
+		if f.Inset.ShadowLeft then
+			f.Inset.ShadowLeft:SetTexture(0, 0, 0, 0)
+		end
+		if f.Inset.ShadowRight then
+			f.Inset.ShadowRight:SetTexture(0, 0, 0, 0)
+		end
+		if f.Inset.VignetteTopRight then
+			f.Inset.VignetteTopRight:SetTexture(0, 0, 0, 0)
+		end
+		if f.Inset.VignetteBottomLeft then
+			f.Inset.VignetteBottomLeft:SetTexture(0, 0, 0, 0)
+		end
+		if f.Inset.VignetteBottomRight then
+			f.Inset.VignetteBottomRight:SetTexture(0, 0, 0, 0)
+		end
+		if f.Inset.ArtworkBottomLeft then
+			f.Inset.ArtworkBottomLeft:SetTexture(0, 0, 0, 0)
+		end
+		if f.Inset.DecorOverlay then
+			f.Inset.DecorOverlay:Hide()
+		end
+	end
+
+	if f.CloseButton then
+		S:HandleCloseButton(f.CloseButton)
+	end
+
+	if f.TopPanel then
+		if f.TopPanel.SeasonTimer then
+			local st = f.TopPanel.SeasonTimer
+			if st.TimeLeft then
+				st.TimeLeft:FontTemplate(nil, 18, "NONE")
+			end
+			if st.TimeLeftLabel then
+				st.TimeLeftLabel:FontTemplate(nil, 12, "NONE")
+			end
+		end
+
+		if f.TopPanel.ExperiencePanel then
+			local ep = f.TopPanel.ExperiencePanel
+			if ep.PurchaseButton then
+				CleanPageButton(ep.PurchaseButton)
+			end
+			if ep.StatusBar then
+				S:HandleStatusBar(ep.StatusBar)
+				if ep.StatusBar.Background then
+					ep.StatusBar.Background:SetTexture(nil)
+					ep.StatusBar.Background:SetAlpha(0)
+				end
+				if ep.StatusBar.Overlay then
+					ep.StatusBar.Overlay:SetTexture(nil)
+					ep.StatusBar.Overlay:SetAlpha(0)
+				end
+			end
+		end
+
+		if f.TopPanel.RewardPageButton then
+			CleanPageButton(f.TopPanel.RewardPageButton)
+		end
+		if f.TopPanel.QuestPageButton then
+			CleanPageButton(f.TopPanel.QuestPageButton)
+		end
+		if f.TopPanel.Tutorial then
+			StyleTutorialButton(f.TopPanel.Tutorial)
+		end
+	end
+
+	ApplyElvUIFont(f.TopPanel)
+
+	if f.Content and f.Content.QuestPage and not f.Content.QuestPage._Elv_FontHooked then
+		f.Content.QuestPage._Elv_FontHooked = true
+		local function SkinAllQuestActionButtons(root)
+			if not root or not root.GetNumChildren then
+				return
+			end
+			for i = 1, (root:GetNumChildren() or 0) do
+				local child = select(i, root:GetChildren())
+				if child then
+					-- local cb = child.CancelButton
+					-- if cb then
+						-- child:StripTextures()
+						-- child.backdrop = CreateFrame("Frame", nil, child)
+						-- child.backdrop:SetAllPoints(child)
+						-- local frameLevel = child.GetFrameLevel and child:GetFrameLevel()
+						-- local frameLevelMinusOne = frameLevel and (frameLevel - 4)
+
+						-- if frameLevelMinusOne and (frameLevelMinusOne >= 0) then
+						-- 	child.backdrop:SetFrameLevel(frameLevelMinusOne)
+						-- else
+						-- 	child.backdrop:SetFrameLevel(0)
+						-- end
+						-- local borderr, borderg, borderb = unpack( E.media.bordercolor)
+						-- local backdropr, backdropg, backdropb, backdropa = unpack(E.media.backdropfadecolor)
+						-- child.backdrop:SetBackdrop({
+						-- 	bgFile = E.media.blankTex,
+						-- 	edgeFile = E.media.blankTex,
+						-- 	tile = false, tileSize = 0, edgeSize = E.mult,
+						-- 	insets = {left = 0, right = 0, top = 0, bottom = 0}
+						-- })
+
+						-- child.backdrop:SetBackdropColor(backdropr, backdropg, backdropb, backdropa)
+						-- child.backdrop:SetBackdropBorderColor(borderr, borderg, borderb, 1)
+						-- child:CreateBackdrop("Transparent")
+						-- child:SetBackdropBorderColor(unpack(E.media.bordercolor))
+						-- S:HandleFrame(child,true,false)
+						-- S:HandleCloseButton(cb);
+					-- end
+					-- local ns = child.NineSliceBorder
+					-- if(ns)then
+					-- 	ns:StripTextures()
+					-- 	ns:Hide()
+					-- end
+					-- local ng = child.NineSliceGlow
+					-- if(ng)then
+					-- 	ng:Hide()
+					-- 	ng:StripTextures()
+					-- end
+					-- local checkbox = child.TrackButton
+					-- if(checkbox)then
+					-- 	S:HandleCheckBox(checkbox)
+					-- end
+					--  _G.ElvUI[1]:GetModule("Skins"):HandleStatusBar(BattlePassFrameContentQuestPageScrollFrameScrollChildQuestHolder2QuestFrame2ProgressStatusBar)
+					-- BattlePassFrameContentQuestPageScrollFrameScrollChildQuestHolder2QuestFrame2ProgressStatusBar:SetFrameLevel(BattlePassFrameContentQuestPageScrollFrameScrollChildQuestHolder2QuestFrame2ProgressStatusBar:GetFrameLevel()+1)
+					-- BattlePassFrameContentQuestPageScrollFrameScrollChildQuestHolder2QuestFrame2Progress:SetFrameLevel(BattlePassFrameContentQuestPageScrollFrameScrollChildQuestHolder2QuestFrame2Progress:GetFrameLevel()+1)
+					-- BattlePassFrameContentQuestPageScrollFrameScrollChildQuestHolder2QuestFrame2Progress:SetFrameStrata("DIALOG")
+					-- S:HandleStatusBar(esb)
+					-- if esb.Background then
+					-- 	BattlePassFrameContentQuestPageScrollFrameScrollChildQuestHolder2QuestFrame2ProgressStatusBar.backdrop:SetTexture(nil)
+					-- 	BattlePassFrameContentQuestPageScrollFrameScrollChildQuestHolder2QuestFrame2ProgressStatusBar.backdrop:SetAlpha(0)
+					-- end
+					-- if esb.Overlay then
+					-- 	BattlePassFrameContentQuestPageScrollFrameScrollChildQuestHolder2QuestFrame2ProgressStatusBar.Overlay:SetTexture(nil)
+					-- 	BattlePassFrameContentQuestPageScrollFrameScrollChildQuestHolder2QuestFrame2ProgressStatusBar.Overlay:SetAlpha(0)
+					-- end
+					-- local status = child.Progress and child.Progress.StatusBar
+					-- if(status)then
+					-- 	S:HandleStatusBar(status)
+					-- 	if status.backdrop then
+					-- 		status.backdrop:Hide()
+					-- 		status.backdrop:StripTextures()
+					-- 	end
+					-- end
+					-- S:HandleFrame(child)
+					if child.ActionButton then
+						ReskinPKBTButton(child.ActionButton)
+						child.ActionButton:Show()
+					end
+					SkinAllQuestActionButtons(child)
+				end
+			end
+		end
+		hooksecurefunc(f.Content.QuestPage, "UpdateQuestHolders", function(self)
+			ApplyElvUIFont(self)
+			if self.ScrollFrame and self.ScrollFrame.ScrollChild then
+				SkinAllQuestActionButtons(self.ScrollFrame.ScrollChild)
+			end
+		end)
+		-- run once for currently existing frames
+		if f.Content.QuestPage.ScrollFrame and f.Content.QuestPage.ScrollFrame.ScrollChild then
+			SkinAllQuestActionButtons(f.Content.QuestPage.ScrollFrame.ScrollChild)
+		end
+	end
+	if _G.BattlePassQuestHolderMixin and _G.BattlePassQuestHolderMixin.UpdateQuests and not S._Elv_QuestHolderFontsHooked then
+		S._Elv_QuestHolderFontsHooked = true
+		hooksecurefunc(_G.BattlePassQuestHolderMixin, "UpdateQuests", function(self)
+			ApplyElvUIFont(self)
+		end)
+	end
+
+	if f.Content and f.Content.MainPage then
+		local main = f.Content.MainPage
+
+		if _G.BattlePassLevelCardMixin and not S._Elv_LevelCardButtonsHooked then
+			S._Elv_LevelCardButtonsHooked = true
+			hooksecurefunc(_G.BattlePassLevelCardMixin, "SetTypeState", function(self)
+				local freeButton = self.FreeFrame and self.FreeFrame.ActionButton
+				local premButton = self.PremiumFrame and self.PremiumFrame.ActionButton
+				if freeButton then
+					S:HandleButton(freeButton)
+					-- ReskinPKBTButton(freeButton)
+					-- freeButton:Show()
+				end
+				if premButton then
+					S:HandleButton(premButton)
+					-- ReskinPKBTButton(premButton)
+					-- premButton:Show()
+				end
+			end)
+			hooksecurefunc(_G.BattlePassLevelCardMixin, "SetState", function(self)
+				if self.SetScript then
+					self:SetScript("OnUpdate", nil)
+				end
+				local fb = self.FreeFrame and self.FreeFrame.ActionButton
+				local pb = self.PremiumFrame and self.PremiumFrame.ActionButton
+				if fb then
+					S:HandleButton(fb)
+					fb:Show()
+				end
+				if pb then
+					S:HandleButton(pb)
+					pb:Show()
+				end
+			end)
+			hooksecurefunc(_G.BattlePassLevelCardMixin, "OnLeave", function(self)
+				local fb = self.FreeFrame and self.FreeFrame.ActionButton
+				local pb = self.PremiumFrame and self.PremiumFrame.ActionButton
+				if fb then
+					S:HandleButton(fb)
+					fb:Show()
+				end
+				if pb then
+					S:HandleButton(pb)
+					pb:Show()
+				end
+			end)
+		end
+
+		if main.ScrollFrame and main.ScrollFrame.buttons then
+			for _, card in ipairs(main.ScrollFrame.buttons) do
+				local fb = card.FreeFrame and card.FreeFrame.ActionButton
+				local pb = card.PremiumFrame and card.PremiumFrame.ActionButton
+				if fb then
+					S:HandleButton(fb)
+					-- ReskinPKBTButton(fb)
+					-- fb:Show()
+				end
+				if pb then
+					S:HandleButton(pb)
+					-- ReskinPKBTButton(pb)
+					-- pb:Show()
+				end
+			end
+		end
+		if main.ScrollFrame and main.ScrollFrame.ScrollBar then
+			S:HandleScrollBar(main.ScrollFrame.ScrollBar, true)
+		end
+		if main.ExperienceScrollFrame and main.ExperienceScrollFrame.ScrollChild and
+			main.ExperienceScrollFrame.ScrollChild.ExperienceStatusBar then
+			local esb = main.ExperienceScrollFrame.ScrollChild.ExperienceStatusBar
+			S:HandleStatusBar(esb)
+			if esb.Background then
+				esb.Background:SetTexture(nil)
+				esb.Background:SetAlpha(0)
+			end
+			if esb.Overlay then
+				esb.Overlay:SetTexture(nil)
+				esb.Overlay:SetAlpha(0)
+			end
+		end
+
+		if main.TakeAllRewardsCheckButton then
+			S:HandleCheckBox(main.TakeAllRewardsCheckButton)
+			local cb = main.TakeAllRewardsCheckButton
+			local function FixDuplicateLabel()
+				local first
+				for i = 1, (cb:GetNumRegions() or 0) do
+					local r = select(i, cb:GetRegions())
+					if r and r:GetObjectType() == "FontString" then
+						local txt = r.GetText and r:GetText()
+						if txt and txt ~= "" then
+							if first then
+								if r.Hide then
+									r:Hide()
+								end
+							else
+								first = r
+								if r.Show then
+									r:Show()
+								end
+								local _, size, flags = r:GetFont()
+								r:SetFont(E.media.normFont or (select(1, GameFontNormal:GetFont())),
+									size and size > 0 and size or 12,
+									flags or "")
+							end
+						end
+					end
+				end
+			end
+			FixDuplicateLabel()
+			if not cb._Elv_FixDuplicateHooked then
+				cb._Elv_FixDuplicateHooked = true
+				cb:HookScript("OnShow", FixDuplicateLabel)
+			end
+		end
+
+		if main.PurchasePremiumButton then
+			S:HandleButton(main.PurchasePremiumButton)
+		end
+		ApplyElvUIFont(main)
+	end
+
+	if f.Content and f.Content.QuestPage and f.Content.QuestPage.ScrollFrame and f.Content.QuestPage.ScrollFrame.ScrollBar then
+		S:HandleScrollBar(f.Content.QuestPage.ScrollFrame.ScrollBar)
+	end
+	if f.Content and f.Content.QuestPage then
+		ApplyElvUIFont(f.Content.QuestPage)
+	end
+
+	if _G.BattlePassQuestMixin and not S._Elv_QuestActionButtonsHooked then
+		S._Elv_QuestActionButtonsHooked = true
+		hooksecurefunc(_G.BattlePassQuestMixin, "UpdateActionButton", function(self)
+			local btn = self.ActionButton
+			if btn then
+				ReskinPKBTButton(btn)
+				if btn.ClearAllPoints then
+					btn:ClearAllPoints()
+				end
+				if self.Progress then
+					btn:SetPoint("BOTTOMLEFT", self.Progress, "BOTTOMLEFT", 5, 15)
+				else
+					btn:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", 100, 12)
+				end
+				btn:Show()
+			end
+		end)
+	end
+
+	if f.PurchasePremiumDialog then
+		local d = f.PurchasePremiumDialog
+		S:HandleFrame(BattlePassFramePurchasePremiumDialog)
+		S:HandleFrame(d)
+		if d.CloseButton then
+			S:HandleCloseButton(d.CloseButton)
+		end
+		if d.PurchaseButton then
+			S:HandleButton(d.PurchaseButton)
+		end
+		ApplyElvUIFont(d)
+	end
+
+	if f.PurchaseExperienceDialog then
+		local d = f.PurchaseExperienceDialog
+		S:HandleFrame(BattlePassFramePurchaseLevelExperienceDialog)
+		-- d:StripTextures(true)
+		-- d:SetTemplate("Transparent")
+		if d.CloseButton then
+			S:HandleCloseButton(d.CloseButton)
+		end
+		if d.PurchaseButton then
+			CleanPageButton(d.PurchaseButton)
+		end
+		if d.OptionAmount then
+			S:HandleEditBox(d.OptionAmount)
+			if d.OptionAmount.Left then
+				d.OptionAmount.Left:SetAlpha(0)
+			end
+			if d.OptionAmount.Right then
+				d.OptionAmount.Right:SetAlpha(0)
+			end
+			if d.OptionAmount.Center then
+				d.OptionAmount.Center:SetAlpha(0)
+			end
+			for i = 1, (d.OptionAmount:GetNumRegions() or 0) do
+				local r = select(i, d.OptionAmount:GetRegions())
+				if r and r.IsObjectType and r:IsObjectType("Texture") then
+					r:SetTexture()
+					r:SetAlpha(0)
+				end
+			end
+		end
+
+		if d.NineSlice then
+			d.NineSlice:Hide()
+		end
+		if d.Background then
+			d.Background:SetTexture(0, 0, 0, 0)
+			d.Background:SetAlpha(0)
+		end
+		if d.VignetteTopLeft then
+			d.VignetteTopLeft:SetTexture(0, 0, 0, 0)
+			d.VignetteTopLeft:SetAlpha(0)
+		end
+		if d.VignetteTopRight then
+			d.VignetteTopRight:SetTexture(0, 0, 0, 0)
+			d.VignetteTopRight:SetAlpha(0)
+		end
+
+		if d.OptionAmount then
+			local inc = d.OptionAmount.IncrementButton
+			local dec = d.OptionAmount.DecrementButton
+			if inc and inc.IsObjectType and inc:IsObjectType("Button") then
+				if S.HandleNextPrevButton then
+					S:HandleNextPrevButton(inc)
+				else
+					S:HandleButton(inc)
+				end
+				if S.SetNextPrevButtonDirection then
+					S:SetNextPrevButtonDirection(inc, "right")
+				end
+				if inc.ClearAllPoints then
+					inc:ClearAllPoints()
+				end
+				if inc.SetPoint then
+					inc:SetPoint("RIGHT", d.OptionAmount, "RIGHT", -14, -2)
+				end
+				if inc.SetSize then
+					inc:SetSize(18, 18)
+				end
+				if d.OptionAmount.GetFrameLevel then
+					inc:SetFrameLevel(d.OptionAmount:GetFrameLevel() + 2)
+				end
+				if inc.Show then
+					inc:Show()
+				end
+			end
+			if dec and dec.IsObjectType and dec:IsObjectType("Button") then
+				if S.HandleNextPrevButton then
+					S:HandleNextPrevButton(dec)
+				else
+					S:HandleButton(dec)
+				end
+				if S.SetNextPrevButtonDirection then
+					S:SetNextPrevButtonDirection(dec, "left")
+				end
+				if dec.ClearAllPoints then
+					dec:ClearAllPoints()
+				end
+				if dec.SetPoint then
+					dec:SetPoint("LEFT", d.OptionAmount, "LEFT", 14, -2)
+				end
+				if dec.SetSize then
+					dec:SetSize(18, 18)
+				end
+				if d.OptionAmount.GetFrameLevel then
+					dec:SetFrameLevel(d.OptionAmount:GetFrameLevel() + 2)
+				end
+				if dec.Show then
+					dec:Show()
+				end
+			end
+		end
+	end
+
+	if f.PurchaseLevelExperienceDialog then
+		local d = f.PurchaseLevelExperienceDialog
+		S:HandleFrame(BattlePassFramePurchaseLevelExperienceDialog)
+		d:StripTextures(true)
+		d:SetTemplate("Transparent")
+		if d.CloseButton then
+			S:HandleCloseButton(d.CloseButton)
+		end
+		if d.PurchaseButton then
+			S:HandleButton(d.PurchaseButton)
+		end
+		ApplyElvUIFont(d)
+	end
+
+	if f.QuestActionDialog then
+		local d = f.QuestActionDialog
+		d:StripTextures(true)
+		d:SetTemplate("Transparent")
+		if d.NineSlice then
+			d.NineSlice:Hide()
+		end
+		if d.SetBackdropBorderColor then
+			d:SetBackdropBorderColor(0, 0, 0, 0)
+		end
+		if d.backdrop and d.backdrop.SetBackdropBorderColor then
+			d.backdrop:SetBackdropBorderColor(0, 0, 0, 0)
+		end
+		if d.OkButton then
+			S:HandleButton(d.OkButton)
+		end
+		if d.CancelButton then
+			S:HandleButton(d.CancelButton)
+		end
+		ApplyElvUIFont(d)
+	end
+
+	if f.ItemRewardFrame then
+		local d = f.ItemRewardFrame
+		d:StripTextures(true)
+		d:SetTemplate("Transparent")
+		if d.CloseButton then
+			S:HandleCloseButton(d.CloseButton)
+		end
+		ApplyElvUIFont(d)
+	end
+
+	if f.AlertFrame then
+		local d = f.AlertFrame
+		d:StripTextures(true)
+		d:SetTemplate("Transparent")
+		ApplyElvUIFont(d)
+	end
 end
 
--- Загрузка скина
-local function LoadEnhancedSkin()
-    if _G.BattlePassFrame then
-        StyleBattlePassFrame()
-    else
-        local waitFrame = CreateFrame("Frame")
-        waitFrame:RegisterEvent("PLAYER_LOGIN")
-        waitFrame:SetScript("OnEvent", function(self)
-            if _G.BattlePassFrame then
-                StyleBattlePassFrame()
-                self:UnregisterAllEvents()
-            end
-        end)
-        
-        -- Также проверяем при открытии фрейма
-        waitFrame:RegisterEvent("ADDON_LOADED")
-        waitFrame:SetScript("OnEvent", function(self, event, addon)
-            if event == "ADDON_LOADED" and addon == "Blizzard_BattlePassUI" then
-                if _G.BattlePassFrame then
-                    StyleBattlePassFrame()
-                    self:UnregisterAllEvents()
-                end
-            end
-        end)
-    end
+local function LoadSkin()
+	if E.private.skins.blizzard.enable ~= true or E.private.skins.blizzard.battlePass ~= true then
+		return
+	end
+
+	if _G.BattlePassFrame then
+		HandleBattlePassFrame()
+	else
+		local f = CreateFrame("Frame")
+		f:RegisterEvent("PLAYER_LOGIN")
+		f:SetScript("OnEvent", function(self)
+			if _G.BattlePassFrame then
+				HandleBattlePassFrame()
+				self:UnregisterAllEvents()
+			end
+		end)
+	end
 end
 
--- Регистрируем скин через ElvUI
-local function Initialize()
-    -- Создаем задержку для загрузки BattlePass
-    local f = CreateFrame("Frame")
-    
-    local function CheckAndStyle()
-        if _G.BattlePassFrame then
-            LoadEnhancedSkin()
-            return true
-        end
-        return false
-    end
-    
-    -- Проверяем сразу
-    if not CheckAndStyle() then
-        -- Если еще не загружено, ждем события
-        f:RegisterEvent("PLAYER_LOGIN")
-        f:RegisterEvent("ADDON_LOADED")
-        
-        f:SetScript("OnEvent", function(self, event, addon)
-            if event == "PLAYER_LOGIN" or (event == "ADDON_LOADED" and addon == "Blizzard_BattlePassUI") then
-                if CheckAndStyle() then
-                    self:UnregisterAllEvents()
-                end
-            end
-        end)
-        
-        -- Также проверяем через таймер на случай, если событие пропущено
-        f.timer = f:CreateAnimationGroup()
-        f.timer.anim = f.timer:CreateAnimation()
-        f.timer.anim:SetDuration(1)
-        f.timer:SetScript("OnFinished", function()
-            if CheckAndStyle() then
-                f:UnregisterAllEvents()
-                f.timer:Stop()
-            end
-        end)
-        f.timer:Play()
-    end
-end
-
--- Запускаем инициализацию после загрузки ElvUI
-if E and E.RegisterModule then
-    E:RegisterModule('Sirus_BattlePass_Skin', Initialize)
-else
-    -- Альтернативный способ инициализации
-    local initFrame = CreateFrame("Frame")
-    initFrame:RegisterEvent("PLAYER_LOGIN")
-    initFrame:SetScript("OnEvent", function()
-        Initialize()
-        initFrame:UnregisterAllEvents()
-    end)
-end
+S:AddCallback("Custom_BattlePass", LoadSkin)
